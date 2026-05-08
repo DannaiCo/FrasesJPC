@@ -22,85 +22,100 @@
     }
 
     .contenedor {
+
       position: relative;
-      width: 100vw;
-      height: 100vh;
+
+      width: 768px;
+      height: 768px;
+
       overflow: hidden;
+
+      transform-origin: 0 0;
+
+      background: #000;
     }
 
     /* VIDEO */
     #fondoVideo {
+
       position: absolute;
+
       inset: 0;
+
       width: 100%;
       height: 100%;
+
       object-fit: cover;
+
       z-index: 0;
     }
 
-    /* CONTENEDOR TEXTO */
-   /* CONTENEDOR GENERAL */
-#nombres {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-}
+    /* CONTENEDOR GENERAL */
+    #nombres {
 
-/* NOMBRE MAMÁ */
-.nombre {
+      position: absolute;
 
-  position: absolute;
+      inset: 0;
 
-  top: 456px;   /* ← mueve vertical */
-  left: -337px;  /* ← mueve horizontal */
+      z-index: 5;
+    }
 
-  width: 2000px;
+    /* NOMBRE MAMÁ */
+    .nombre {
 
-  text-align: center;
+      position: absolute;
 
-  color: #FFDBCC;
+      top: 604px;
+      left: -465px;
 
-  font-size: 44px;
+      width: 2000px;
 
-  font-family: "Open Sans", sans-serif;
+      text-align: center;
 
-  font-style: italic;
+      color: #FFDBCC;
 
-  font-weight: 800;
+      font-size: 50px;
 
-  opacity: 0;
+      font-family: "Open Sans", sans-serif;
 
-  transition: opacity .8s ease;
-}
+      font-style: italic;
 
-/* DICHO */
-.dicho {
+      font-weight: 800;
 
-  position: absolute;
+      opacity: 0;
 
-  top: 319px;   /* ← mueve vertical */
-  left: 112px;  /* ← mueve horizontal */
+      transition: opacity .8s ease;
+    }
 
-  width: 800px;
+    /* DICHO */
+    .dicho {
 
-  text-align: center;
+      position: absolute;
 
-  color: #F3574A;
+      top: 319px;
+      left: 112px;
 
-  font-size: 53px;
+      width: 800px;
 
-  line-height: 1.2;
+      text-align: center;
 
-  font-family: "Open Sans", sans-serif;
+      color: #F3574A;
 
-  font-style: italic;
+      font-size: 57px;
 
-  font-weight: 800;
+      line-height: 1.2;
 
-  opacity: 0;
+      font-family: "Open Sans", sans-serif;
 
-  transition: opacity .8s ease;
-}
+      font-style: italic;
+
+      font-weight: 800;
+
+      opacity: 0;
+
+      transition: opacity .8s ease;
+    }
+
     .mostrar {
       opacity: 1;
     }
@@ -130,6 +145,23 @@
 
   <script>
 
+    /* ESCALA FIJA */
+    function escalarPantalla() {
+
+      const escalaX = window.innerWidth / 768;
+      const escalaY = window.innerHeight / 768;
+
+      const escala = Math.min(escalaX, escalaY);
+
+      document.querySelector(".contenedor").style.transform =
+        `scale(${escala})`;
+    }
+
+    window.addEventListener("resize", escalarPantalla);
+
+    escalarPantalla();
+
+    /* URL APPS SCRIPT */
     const url =
       "https://script.google.com/macros/s/AKfycbwJNwjEI0QjntRwNEl3PlPf-IC5Dd15R6dSlcaRtkgOpNljXK77EKLikm1W3PGZkjS5jA/exec";
 
@@ -172,24 +204,17 @@
 
           setTimeout(() => {
 
-            /* IMPORTANTE:
-               ESTE CÓDIGO USA:
-               item.nombre
-               item.deseo1
-
-               porque seguramente tu Apps Script
-               está devolviendo esos nombres.
-            */
-
+            /* NOMBRE MAMÁ */
             elNombre.textContent =
-  item.mama
-  ? item.mama.toUpperCase()
-  : "--";
+              item.mama
+              ? item.mama.toUpperCase()
+              : "--";
 
-elDicho.textContent =
-  item.dicho
-  ? `"${item.dicho}"`
-  : "";
+            /* DICHO */
+            elDicho.textContent =
+              item.dicho
+              ? `"${item.dicho}"`
+              : "";
 
             elNombre.classList.add("mostrar");
             elDicho.classList.add("mostrar");
@@ -224,8 +249,6 @@ elDicho.textContent =
 
 </body>
 </html>
-
-
 
 
 
