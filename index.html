@@ -2,137 +2,226 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Día de la mujer</title>
- <link rel="stylesheet" href="https://use.typekit.net/ymy7tce.css">
+  <title>Día de la madre - iCo Medios</title>
+
+  <meta http-equiv="refresh" content="180">
+
+  <!-- FUENTE -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@1,800&display=swap" rel="stylesheet">
+
   <style>
-    html, body {
+
+    html,
+    body {
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      width: 100vw;   /* 👈 usamos viewport en lugar de px */
-      height: 100vh;
-      font-family: "kit-rounded", sans-serif;
-      font-style: normal;
+      background: #ffffff;
     }
 
     .contenedor {
       position: relative;
-      width: 100vw;   /* 👈 siempre ocupar toda la pantalla */
+      width: 100vw;
       height: 100vh;
+      overflow: hidden;
     }
 
-    video#fondoVideo {
+    /* VIDEO */
+    #fondoVideo {
       position: absolute;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover; /* 👈 mejor que fill: mantiene proporción y llena */
+      object-fit: cover;
       z-index: 0;
     }
 
-    .nombre{
-  position:absolute;
-  top:36%;
-  left:70%;
-  transform:translate(-50%, -50%);
-  font-size:40px;
-  font-weight:800;
-  color:#ffe4f3 ;
-  opacity:0;
-  width:500px;
-  max-width:500px;
-  transition:opacity 0.3s ease-in-out;
-  font-family:"kit-rounded", sans-serif;
-  font-style: normal;
-  text-transform:uppercase;  /* 👈 convierte todo a MAYÚSCULA */
+    /* CONTENEDOR TEXTO */
+   /* CONTENEDOR GENERAL */
+#nombres {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
 }
 
-.mensaje{
-  position:absolute;
-  top:57%;
-  left:50%;
-  transform:translate(-50%, -50%);
+/* NOMBRE MAMÁ */
+.nombre {
 
-  width:500px;
-  max-width:500px;
+  position: absolute;
 
-  text-align:center;
-  font-size:40px;
-  font-weight:800;
-  color:#453188;
+  top: 456px;   /* ← mueve vertical */
+  left: -337px;  /* ← mueve horizontal */
 
-  font-family:"kit-rounded", sans-serif;
+  width: 2000px;
 
-  white-space:normal;       /* permite salto de línea */
-  word-wrap:break-word;
-  overflow-wrap:break-word;
+  text-align: center;
 
-  line-height:1.2;         /* controla interlineado */
+  color: #FFDBCC;
 
-  text-transform:uppercase;
+  font-size: 44px;
 
-  opacity:0;
-  transition:opacity 0.3s ease-in-out;
+  font-family: "Open Sans", sans-serif;
 
+  font-style: italic;
+
+  font-weight: 800;
+
+  opacity: 0;
+
+  transition: opacity .8s ease;
 }
 
+/* DICHO */
+.dicho {
+
+  position: absolute;
+
+  top: 319px;   /* ← mueve vertical */
+  left: 112px;  /* ← mueve horizontal */
+
+  width: 800px;
+
+  text-align: center;
+
+  color: #F3574A;
+
+  font-size: 53px;
+
+  line-height: 1.2;
+
+  font-family: "Open Sans", sans-serif;
+
+  font-style: italic;
+
+  font-weight: 800;
+
+  opacity: 0;
+
+  transition: opacity .8s ease;
+}
     .mostrar {
       opacity: 1;
     }
+
   </style>
 </head>
+
 <body>
+
   <div class="contenedor">
+
+    <!-- VIDEO -->
     <video autoplay muted loop playsinline id="fondoVideo">
       <source src="fondo.mp4" type="video/mp4">
-      Cargando.
     </video>
 
-    <div class="nombre" id="nombre"></div>
-<div class="mensaje" id="mensaje"></div>
+    <!-- TEXTOS -->
+    <div id="nombres">
+
+      <div class="nombre"></div>
+
+      <div class="dicho"></div>
+
+    </div>
+
   </div>
 
-<script>
-  const url = "https://script.google.com/macros/s/AKfycbxv8-cGlMdG3ilb60hxcWzi7nuaBXimpkNKYdRBuhbWpZ8jXWICX6zCNtmWHLATn-vQDA/exec";
+  <script>
 
-fetch(url)
-.then(res => res.json())
-.then(data => {
+    const url =
+      "https://script.google.com/macros/s/AKfycbwJNwjEI0QjntRwNEl3PlPf-IC5Dd15R6dSlcaRtkgOpNljXK77EKLikm1W3PGZkjS5jA/exec";
 
-  const mensajes = data;
+    const elNombre =
+      document.querySelector(".nombre");
 
-  const nombreEl = document.getElementById("nombre");
-  const mensajeEl = document.getElementById("mensaje");
+    const elDicho =
+      document.querySelector(".dicho");
 
-  function mostrarMensaje(){
+    fetch(url)
 
-    const aleatorio = mensajes[Math.floor(Math.random() * mensajes.length)];
+      .then(response => response.json())
 
-    nombreEl.innerText = aleatorio.nombre;
-    mensajeEl.innerText = aleatorio.mensaje;
+      .then(data => {
 
-    nombreEl.classList.add("mostrar");
-    mensajeEl.classList.add("mostrar");
-  }
+        console.log(data);
 
-  mostrarMensaje();
+        if (!data || data.length === 0) {
 
-  setInterval(()=>{
+          elNombre.textContent = "";
 
-    nombreEl.classList.remove("mostrar");
-    mensajeEl.classList.remove("mostrar");
+          elDicho.textContent =
+            "No hay mensajes aprobados";
 
-    setTimeout(mostrarMensaje,500);
+          elDicho.classList.add("mostrar");
 
-  },5000);
+          return;
+        }
 
-})
-.catch(err=>{
-  console.error("Error:",err);
-});
-   
-</script>
+        let index = 0;
+
+        function mostrarMensaje() {
+
+          const item = data[index];
+
+          console.log(item);
+
+          elNombre.classList.remove("mostrar");
+          elDicho.classList.remove("mostrar");
+
+          setTimeout(() => {
+
+            /* IMPORTANTE:
+               ESTE CÓDIGO USA:
+               item.nombre
+               item.deseo1
+
+               porque seguramente tu Apps Script
+               está devolviendo esos nombres.
+            */
+
+            elNombre.textContent =
+  item.mama
+  ? item.mama.toUpperCase()
+  : "--";
+
+elDicho.textContent =
+  item.dicho
+  ? `"${item.dicho}"`
+  : "";
+
+            elNombre.classList.add("mostrar");
+            elDicho.classList.add("mostrar");
+
+          }, 300);
+
+          index++;
+
+          if (index >= data.length) {
+            index = 0;
+          }
+        }
+
+        mostrarMensaje();
+
+        setInterval(mostrarMensaje, 5000);
+
+      })
+
+      .catch(error => {
+
+        console.error(error);
+
+        elDicho.textContent =
+          "Error cargando mensajes";
+
+        elDicho.classList.add("mostrar");
+
+      });
+
+  </script>
+
 </body>
 </html>
 
