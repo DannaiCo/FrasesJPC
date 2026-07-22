@@ -2,211 +2,278 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <title>Día de la madre - iCo Medios</title>
-
-    <meta http-equiv="refresh" content="180" />
-
-    <!-- FUENTE -->
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@1,800&display=swap" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nombre y frase</title>
 
     <style>
-      html,
-      body {
+      :root {
+        --ancho-lienzo: 769;
+        --alto-lienzo: 769;
+      }
+
+      * {
+        box-sizing: border-box;
         margin: 0;
         padding: 0;
+      }
+
+      html,
+      body {
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #ffffff;
+        background: #000;
+        font-family: Arial, Helvetica, sans-serif;
       }
 
-      .contenedor {
+      /* Contenedor que centra y escala el lienzo completo */
+      #viewport {
         position: relative;
-
-        width: 768px;
-        height: 768px;
-
+        width: 100vw;
+        height: 100vh;
         overflow: hidden;
-
-        transform-origin: 0 0;
-
         background: #000;
       }
 
-      /* VIDEO */
-      #fondoVideo {
+      /* Lienzo de trabajo fijo: 2560 x 1440 px */
+      #lienzo {
         position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 769px;
+        height: 769px;
+        overflow: hidden;
+        transform-origin: center center;
+        background: #000;
+      }
 
+      /* Video de fondo */
+      #video-fondo {
+        position: absolute;
         inset: 0;
-
-        width: 100%;
-        height: 100%;
-
+        width: 769px;
+        height: 769px;
         object-fit: cover;
-
         z-index: 0;
       }
 
-      /* CONTENEDOR GENERAL */
-      #nombres {
+      /* Capa general para el contenido */
+      #contenido {
         position: absolute;
-
         inset: 0;
-
-        z-index: 5;
+        z-index: 1;
+        pointer-events: none;
       }
 
-      /* NOMBRE MAMÁ */
-      .nombre {
+      /* Nombre alineado a la izquierda */
+      #nombre {
+        color: #fff;
         position: absolute;
-
-        top: 396px;
-        left: 150px;
-
-        width: 500px;
-
-        text-align: center;
-
-        color: #0000ec;
-
-        font-size: 33px;
-
-        font-family: "Open Sans", sans-serif;
-
-        font-style: italic;
-
-        font-weight: 800;
-
-        opacity: 0;
-
-        transition: opacity 0.8s ease;
+        left: 92px;
+        bottom: 495px;
+        max-width: 300px;
+        font-size: 29px;
+        font-weight: 700;
+        line-height: 1.1;
+        text-align: left;
+        text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
       }
 
-      /* DICHO */
-      .dicho {
+      /*
+      Caja de la frase.
+      display:flex + align-items:center centra el texto verticalmente.
+    */
+      #caja-frase {
         position: absolute;
+        top: 298px;
+        right: 464px;
+        width: 228px;
+        height: 347px;
 
-        top: 192px;
-        left: 134px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-        width: 551px;
-
+        padding: 15px 12px;
         text-align: center;
-
-        color: #0000ec;
-
-        font-size: 44px;
-
-        line-height: 1.2;
-
-        font-family: "Open Sans", sans-serif;
-
-        font-style: italic;
-
-        font-weight: 800;
-
-        opacity: 0;
-
-        transition: opacity 0.8s ease;
       }
 
-      .mostrar {
+      #frase {
+        width: 100%;
+        color: #262626;
+        font-size: 45px;
+        font-weight: 700;
+        line-height: 1.08;
+        overflow-wrap: break-word;
+        text-wrap: balance;
+        text-align: left;
+        text-shadow: 0 3px 11px rgba(0, 0, 0, 0.2);
+      }
+
+      #estado {
+        position: absolute;
+        left: 50%;
+        bottom: 40px;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.65);
+        color: #fff;
+        font-size: 26px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      #estado.visible {
         opacity: 1;
       }
     </style>
   </head>
 
   <body>
-    <div class="contenedor">
-      <!-- VIDEO -->
-      <video autoplay muted loop playsinline id="fondoVideo">
-        <source src="fondo.mp4" type="video/mp4" />
-      </video>
+    <main id="viewport">
+      <section id="lienzo">
+        <video id="video-fondo" autoplay muted loop playsinline preload="auto">
+          <source src="fondo.mp4" type="video/mp4" />
+          Tu navegador no soporta video HTML5.
+        </video>
 
-      <!-- TEXTOS -->
-      <div id="nombres">
-        <div class="nombre"></div>
+        <div id="contenido">
+          <div id="caja-frase">
+            <div id="frase">Cargando frase...</div>
+          </div>
 
-        <div class="dicho"></div>
-      </div>
-    </div>
+          <div id="nombre"></div>
+          <div id="estado"></div>
+        </div>
+      </section>
+    </main>
 
     <script>
-      /* ESCALA FIJA */
-      function escalarPantalla() {
-        const escalaX = window.innerWidth / 768;
-        const escalaY = window.innerHeight / 768;
+      const URL_APPS_SCRIPT =
+        "https://script.google.com/macros/s/AKfycbzAn8PgnjyUodElQ3qerWxL4hIW96_wO1vRO8jgLQVweEmYFvjwCUL2S5dTs28p74tk/exec";
 
+      const ANCHO_LIENZO = 769;
+      const ALTO_LIENZO = 769;
+
+      const lienzo = document.getElementById("lienzo");
+      const nombreElemento = document.getElementById("nombre");
+      const fraseElemento = document.getElementById("frase");
+      const estadoElemento = document.getElementById("estado");
+
+      let registros = [];
+      let indiceActual = -1;
+
+      /**
+       * Escala proporcionalmente el lienzo de 2560 x 1440
+       * para que siempre entre completo en la pantalla.
+       */
+      function ajustarLienzo() {
+        const escalaX = window.innerWidth / ANCHO_LIENZO;
+        const escalaY = window.innerHeight / ALTO_LIENZO;
         const escala = Math.min(escalaX, escalaY);
 
-        document.querySelector(".contenedor").style.transform = `scale(${escala})`;
+        lienzo.style.transform = `translate(-50%, -50%) scale(${escala})`;
       }
 
-      window.addEventListener("resize", escalarPantalla);
+      function mostrarEstado(mensaje) {
+        estadoElemento.textContent = mensaje;
+        estadoElemento.classList.add("visible");
+      }
 
-      escalarPantalla();
+      function ocultarEstado() {
+        estadoElemento.classList.remove("visible");
+      }
 
-      const url =
-        "https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnR9sKMc4V_LT0YpJPKgHrTJdw0886LZpZCfFNDpmgqn_PWAkG04bVDbX9kRZgvbFEqfoXH3m59Qk4I-xa_oOHjfdYnsQVZEZGK-I4CHcEfwd6hcV7aFEe_RcBuls2LkfXbRrxyQ5Z0Ga_0Q4tYTUKnD148IiUGF0u1wOkY2LsiW_5PKXaTSE84s06IXxbrC52CGNkw2ZrPMqT1vigNBDcUHE2P6ld_vTvwYRaKn4lj6FagP0VZjSNexLfGeTOgNPvK-AFa0CvCvWO7wVAbZb8yo0mX2MQ&lib=MLNAcr3Jke4q8WCYQeQbKPKeEHa1C_Htb";
+      /**
+       * Normaliza distintas formas posibles del JSON:
+       * {nombre, frase}, {Nombre, Frase}, etc.
+       */
+      function normalizarRegistro(registro) {
+        return {
+          nombre: registro.nombre ?? registro.Nombre ?? registro.NOMBRE ?? "",
+          frase: registro.frase ?? registro.Frase ?? registro.FRASE ?? ""
+        };
+      }
 
-      const elNombre = document.querySelector(".nombre");
+      /**
+       * Selecciona un registro aleatorio evitando repetir
+       * inmediatamente el mismo, cuando hay más de uno.
+       */
+      function obtenerRegistroAleatorio() {
+        if (registros.length === 0) {
+          return null;
+        }
 
-      const elDicho = document.querySelector(".dicho");
+        if (registros.length === 1) {
+          indiceActual = 0;
+          return registros[0];
+        }
 
-      fetch(url)
-        .then((response) => response.json())
+        let nuevoIndice;
 
-        .then((data) => {
-          console.log(data);
+        do {
+          nuevoIndice = Math.floor(Math.random() * registros.length);
+        } while (nuevoIndice === indiceActual);
 
-          if (!data || data.length === 0) {
-            elNombre.textContent = "";
+        indiceActual = nuevoIndice;
+        return registros[nuevoIndice];
+      }
 
-            elDicho.textContent = "No hay mensajes aprobados";
+      function mostrarRegistro(registro) {
+        if (!registro) {
+          nombreElemento.textContent = "";
+          fraseElemento.textContent = "No hay frases aprobadas.";
+          return;
+        }
 
-            elDicho.classList.add("mostrar");
+        nombreElemento.textContent = registro.nombre;
+        fraseElemento.textContent = registro.frase;
+      }
 
-            return;
+      async function cargarDatos() {
+        mostrarEstado("Cargando información...");
+
+        try {
+          const respuesta = await fetch(URL_APPS_SCRIPT, {
+            method: "GET",
+            cache: "no-store"
+          });
+
+          if (!respuesta.ok) {
+            throw new Error(`Error HTTP ${respuesta.status}: ${respuesta.statusText}`);
           }
 
-          let index = Math.floor(Math.random() * data.length);
+          const datos = await respuesta.json();
 
-          function mostrarMensaje() {
-            const item = data[index];
-
-            console.log(item);
-
-            elNombre.classList.remove("mostrar");
-            elDicho.classList.remove("mostrar");
-
-            setTimeout(() => {
-              elNombre.textContent = item.papa ? item.papa.toUpperCase() : "--";
-
-              elDicho.textContent = item.mensaje ? `"${item.mensaje}"` : "";
-
-              elNombre.classList.add("mostrar");
-              elDicho.classList.add("mostrar");
-            }, 300);
-
-            index++;
-
-            if (index >= data.length) {
-              index = 0;
-            }
+          if (!Array.isArray(datos)) {
+            throw new Error("La respuesta de Apps Script no es un arreglo JSON.");
           }
 
-          mostrarMensaje();
+          registros = datos.map(normalizarRegistro).filter((registro) => registro.frase.trim() !== "");
 
-          setInterval(mostrarMensaje, 5000);
-        })
+          mostrarRegistro(obtenerRegistroAleatorio());
+          ocultarEstado();
+        } catch (error) {
+          console.error("No fue posible cargar los datos:", error);
 
-        .catch((error) => {
-          console.error(error);
+          nombreElemento.textContent = "";
+          fraseElemento.textContent = "No fue posible cargar la información.";
 
-          elDicho.textContent = "Error cargando mensajes";
+          mostrarEstado("Verifica la URL, los permisos del Web App y la conexión.");
+        }
+      }
 
-          elDicho.classList.add("mostrar");
-        });
+      window.addEventListener("resize", ajustarLienzo);
+
+      ajustarLienzo();
+      cargarDatos();
+
+      /*
+      Actualiza el contenido cada 180 segundos.
+      Puedes cambiar 180000 por otro intervalo en milisegundos.
+    */
+      setInterval(cargarDatos, 180000);
     </script>
   </body>
 </html>
