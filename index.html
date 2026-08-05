@@ -2,10 +2,18 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
     <title>Nombre y frase</title>
-    <link rel="stylesheet" href="https://use.typekit.net/vsp7vcb.css" />
-    <link rel="stylesheet" href="https://use.typekit.net/vsp7vcb.css" />
+
+    <link
+      rel="stylesheet"
+      href="https://use.typekit.net/vsp7vcb.css"
+    />
 
     <style>
       :root {
@@ -24,7 +32,7 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #000;
+        background: #fdefc8;
       }
 
       /* Contenedor que centra y escala el lienzo completo */
@@ -33,64 +41,109 @@
         width: 100vw;
         height: 100vh;
         overflow: hidden;
-        background: #000;
+        background: #fdefc8;
       }
 
-      /* Lienzo de trabajo fijo: 2560 x 1440 px */
+      /* Lienzo de trabajo fijo: 769 x 769 px */
       #lienzo {
         position: absolute;
         top: 50%;
         left: 50%;
+
         width: 769px;
         height: 769px;
+
         overflow: hidden;
         transform-origin: center center;
-        background: #000;
+
+        background: #fdefc8;
       }
 
-      /* Video de fondo */
-      #video-fondo {
+      /* ======================================================
+         DOBLE REPRODUCTOR DE VIDEO
+         ====================================================== */
+
+      #contenedor-videos {
         position: absolute;
         inset: 0;
+        z-index: 0;
+
         width: 769px;
         height: 769px;
+
+        overflow: hidden;
+        background: #fdefc8;
+      }
+
+      .video-fondo {
+        position: absolute;
+        inset: 0;
+
+        width: 769px;
+        height: 769px;
+
         object-fit: cover;
+
+        opacity: 0;
         z-index: 0;
+
+        /*
+         * Fundido entre el video actual y el siguiente.
+         */
+        transition: opacity 180ms linear;
+
+        /*
+         * Optimización de composición para evitar parpadeos.
+         */
+        will-change: opacity;
+        transform: translateZ(0);
+        backface-visibility: hidden;
+
+        pointer-events: none;
+      }
+
+      .video-fondo.activo {
+        opacity: 1;
       }
 
       /* Capa general para el contenido */
       #contenido {
         position: absolute;
         inset: 0;
-        z-index: 1;
+        z-index: 10;
+
         pointer-events: none;
       }
 
-      /* Nombre alineado a la izquierda */
+      /* Nombre: dimensiones y posición originales */
       #nombre {
         color: #753806;
         position: absolute;
+
         left: 187px;
         bottom: 449px;
+
         width: 398px;
         height: 50px;
+
         font-size: 46px;
         font-family: "rival-sans", sans-serif;
         font-weight: 600;
         font-style: italic;
         line-height: 1.1;
+
         text-align: center;
+
         text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
       }
 
-      /*
-      Caja de la frase.
-      display:flex + align-items:center centra el texto verticalmente.
-    */
+      /* Caja de frase: dimensiones y posición originales */
       #caja-frase {
         position: absolute;
+
         top: 325px;
         right: 27px;
+
         width: 713px;
         height: 125px;
 
@@ -99,32 +152,43 @@
         justify-content: center;
 
         padding: 15px 12px;
+
         text-align: center;
       }
 
+      /* Frase: estilo y dimensiones originales */
       #frase {
         color: #fff;
+
         font-size: 45px;
         font-family: "jaf-domus", sans-serif;
         font-weight: 700;
         font-style: normal;
         line-height: 1.08;
+
         overflow-wrap: break-word;
         text-wrap: balance;
         text-align: center;
+
         text-shadow: 0 3px 11px rgba(0, 0, 0, 0.2);
       }
 
       #estado {
         position: absolute;
+
         left: 50%;
         bottom: 40px;
+
         transform: translateX(-50%);
+
         padding: 12px 24px;
         border-radius: 8px;
+
         background: rgba(0, 0, 0, 0.65);
         color: #fff;
+
         font-size: 26px;
+
         opacity: 0;
         transition: opacity 0.3s ease;
       }
@@ -138,147 +202,1404 @@
   <body>
     <main id="viewport">
       <section id="lienzo">
-        <video id="video-fondo" autoplay muted loop playsinline preload="auto">
-          <source src="fondo.mp4" type="video/mp4" />
-          Tu navegador no soporta video HTML5.
-        </video>
+        <!--
+          Se utilizan dos reproductores superpuestos.
+
+          Mientras uno reproduce el fondo actual,
+          el segundo precarga el próximo archivo.
+        -->
+        <div id="contenedor-videos">
+          <video
+            id="video-fondo-a"
+            class="video-fondo"
+            muted
+            playsinline
+            preload="auto"
+            disablepictureinpicture
+          ></video>
+
+          <video
+            id="video-fondo-b"
+            class="video-fondo"
+            muted
+            playsinline
+            preload="auto"
+            disablepictureinpicture
+          ></video>
+        </div>
 
         <div id="contenido">
           <div id="caja-frase">
-            <div id="frase">Cargando frase...</div>
+            <div id="frase">
+              Cargando frase...
+            </div>
           </div>
 
           <div id="nombre"></div>
+
           <div id="estado"></div>
         </div>
       </section>
     </main>
 
     <script>
+      /*
+       * ==========================================================
+       * CONFIGURACIÓN GENERAL
+       * ==========================================================
+       */
+
       const URL_APPS_SCRIPT =
         "https://script.google.com/macros/s/AKfycbyJ5JFUHJ58raugWjFHPIalheMR_H8Hmb4g74yij2oTrTaqk8uIAoiLe9O91ERR8JjQ/exec";
 
       const ANCHO_LIENZO = 769;
       const ALTO_LIENZO = 769;
 
-      const lienzo = document.getElementById("lienzo");
-      const nombreElemento = document.getElementById("nombre");
-      const fraseElemento = document.getElementById("frase");
-      const estadoElemento = document.getElementById("estado");
+      /*
+       * Cambia la frase cada 5 segundos.
+       */
+      const INTERVALO_FRASES = 5000;
+
+      /*
+       * Actualiza la información desde Google
+       * cada 5 minutos.
+       */
+      const INTERVALO_ACTUALIZACION_DATOS =
+        5 * 60 * 1000;
+
+      /*
+       * Tiempo máximo para esperar la respuesta
+       * de Google Apps Script.
+       */
+      const TIEMPO_MAXIMO_DATOS = 15000;
+
+      /*
+       * Duración del fundido entre videos.
+       *
+       * Debe coincidir aproximadamente con
+       * transition: opacity del CSS.
+       */
+      const DURACION_FUNDIDO_MS = 180;
+
+      /*
+       * El cambio comienza antes de que el archivo termine.
+       *
+       * Esto evita mostrar un último fotograma negro.
+       */
+      const MARGEN_CAMBIO_SEGUNDOS = 0.55;
+
+      /*
+       * Tiempo máximo para cargar un archivo de video.
+       */
+      const TIEMPO_MAXIMO_VIDEO = 10000;
+
+      /*
+       * Nombres exactos de los videos exportados.
+       *
+       * Deben encontrarse en la misma carpeta del HTML.
+       */
+      const VIDEOS_FONDO = [
+        "fondo-00.mp4",
+        "fondo-10.mp4",
+        "fondo-20.mp4",
+        "fondo-30.mp4",
+        "fondo-40.mp4",
+        "fondo-52.mp4"
+      ];
+
+      /*
+       * Claves de almacenamiento específicas
+       * para esta creatividad de 769 x 769.
+       */
+      const CLAVE_COLA_VIDEOS =
+        "dooh-cola-videos-769x769-v1";
+
+      const CLAVE_ULTIMO_VIDEO =
+        "dooh-ultimo-video-769x769-v1";
+
+      /*
+       * ==========================================================
+       * ELEMENTOS DEL HTML
+       * ==========================================================
+       */
+
+      const lienzo =
+        document.getElementById("lienzo");
+
+      const nombreElemento =
+        document.getElementById("nombre");
+
+      const fraseElemento =
+        document.getElementById("frase");
+
+      const estadoElemento =
+        document.getElementById("estado");
+
+      const videosFondo = [
+        document.getElementById(
+          "video-fondo-a"
+        ),
+
+        document.getElementById(
+          "video-fondo-b"
+        )
+      ];
+
+      /*
+       * ==========================================================
+       * VARIABLES DE FRASES
+       * ==========================================================
+       */
 
       let registros = [];
-      let indiceActual = -1;
 
-      /**
-       * Escala proporcionalmente el lienzo de 2560 x 1440
-       * para que siempre entre completo en la pantalla.
+      let ultimaClaveFrase = "";
+
+      let cargaDatosEnCurso = false;
+
+      /*
+       * ==========================================================
+       * VARIABLES DE VIDEO
+       * ==========================================================
        */
-      function ajustarLienzo() {
-        const escalaX = window.innerWidth / ANCHO_LIENZO;
-        const escalaY = window.innerHeight / ALTO_LIENZO;
-        const escala = Math.min(escalaX, escalaY);
 
-        lienzo.style.transform = `translate(-50%, -50%) scale(${escala})`;
+      let indiceVideoActivo = 0;
+
+      let sistemaVideosIniciado = false;
+
+      let cambioVideoEnCurso = false;
+
+      let siguienteVideoPreparado = false;
+
+      let promesaPreparacionVideo = null;
+
+      /*
+       * Respaldo en memoria si localStorage
+       * no está disponible.
+       */
+      let colaVideosMemoria = [];
+
+      let ultimoVideoMemoria = null;
+
+      /*
+       * ==========================================================
+       * AJUSTE DEL LIENZO
+       * ==========================================================
+       */
+
+      function ajustarLienzo() {
+        const escalaX =
+          window.innerWidth / ANCHO_LIENZO;
+
+        const escalaY =
+          window.innerHeight / ALTO_LIENZO;
+
+        const escala =
+          Math.min(escalaX, escalaY);
+
+        lienzo.style.transform =
+          `translate(-50%, -50%) scale(${escala})`;
       }
 
+      /*
+       * ==========================================================
+       * MENSAJES DE ESTADO
+       * ==========================================================
+       */
+
       function mostrarEstado(mensaje) {
-        estadoElemento.textContent = mensaje;
-        estadoElemento.classList.add("visible");
+        estadoElemento.textContent =
+          mensaje;
+
+        estadoElemento.classList.add(
+          "visible"
+        );
       }
 
       function ocultarEstado() {
-        estadoElemento.classList.remove("visible");
+        estadoElemento.classList.remove(
+          "visible"
+        );
       }
 
-      /**
-       * Normaliza distintas formas posibles del JSON:
-       * {nombre, frase}, {Nombre, Frase}, etc.
+      /*
+       * ==========================================================
+       * UTILIDADES
+       * ==========================================================
        */
+
+      function esperar(milisegundos) {
+        return new Promise((resolve) => {
+          setTimeout(resolve, milisegundos);
+        });
+      }
+
+      /*
+       * Mezcla un arreglo con el algoritmo Fisher-Yates.
+       */
+      function barajar(arreglo) {
+        const resultado = [...arreglo];
+
+        for (
+          let indice = resultado.length - 1;
+          indice > 0;
+          indice--
+        ) {
+          const indiceAleatorio =
+            Math.floor(
+              Math.random() *
+                (indice + 1)
+            );
+
+          [
+            resultado[indice],
+            resultado[indiceAleatorio]
+          ] = [
+            resultado[indiceAleatorio],
+            resultado[indice]
+          ];
+        }
+
+        return resultado;
+      }
+
+      /*
+       * ==========================================================
+       * FRASES ALEATORIAS
+       * ==========================================================
+       */
+
       function normalizarRegistro(registro) {
         return {
-          nombre: registro.nombre ?? registro.Nombre ?? registro.NOMBRE ?? "",
-          frase: registro.frase ?? registro.Frase ?? registro.FRASE ?? ""
+          nombre:
+            registro.nombre ??
+            registro.Nombre ??
+            registro.NOMBRE ??
+            "",
+
+          frase:
+            registro.frase ??
+            registro.Frase ??
+            registro.FRASE ??
+            ""
         };
       }
 
-      /**
-       * Selecciona un registro aleatorio evitando repetir
-       * inmediatamente el mismo, cuando hay más de uno.
-       */
-      function obtenerRegistroAleatorio() {
-        if (registros.length === 0) {
-          return null;
-        }
-
-        if (registros.length === 1) {
-          indiceActual = 0;
-          return registros[0];
-        }
-
-        let nuevoIndice;
-
-        do {
-          nuevoIndice = Math.floor(Math.random() * registros.length);
-        } while (nuevoIndice === indiceActual);
-
-        indiceActual = nuevoIndice;
-        return registros[nuevoIndice];
+      function obtenerClaveRegistro(registro) {
+        return [
+          String(registro.nombre).trim(),
+          String(registro.frase).trim()
+        ].join("|||");
       }
 
       function mostrarRegistro(registro) {
         if (!registro) {
           nombreElemento.textContent = "";
-          fraseElemento.textContent = "No hay frases aprobadas.";
+
+          fraseElemento.textContent =
+            "No hay frases aprobadas.";
+
           return;
         }
 
-        nombreElemento.textContent = registro.nombre;
-        fraseElemento.textContent = registro.frase;
+        nombreElemento.textContent =
+          registro.nombre;
+
+        fraseElemento.textContent =
+          registro.frase;
       }
 
-      async function cargarDatos() {
-        mostrarEstado("Cargando información...");
+      /*
+       * Selecciona una frase completamente aleatoria.
+       *
+       * Evita mostrar la misma frase dos veces seguidas.
+       */
+      function mostrarFraseAleatoria() {
+        if (registros.length === 0) {
+          return;
+        }
+
+        let candidatos =
+          registros.filter(
+            (registro) =>
+              obtenerClaveRegistro(registro) !==
+              ultimaClaveFrase
+          );
+
+        /*
+         * Si solamente existe una frase,
+         * se permite repetirla.
+         */
+        if (candidatos.length === 0) {
+          candidatos = registros;
+        }
+
+        const indiceAleatorio =
+          Math.floor(
+            Math.random() *
+              candidatos.length
+          );
+
+        const registroSeleccionado =
+          candidatos[indiceAleatorio];
+
+        ultimaClaveFrase =
+          obtenerClaveRegistro(
+            registroSeleccionado
+          );
+
+        mostrarRegistro(
+          registroSeleccionado
+        );
+      }
+
+      /*
+       * Consulta Google Apps Script.
+       *
+       * La consulta no se realiza cada vez que cambia
+       * la frase. Los registros se cargan y luego se
+       * seleccionan localmente.
+       */
+      async function cargarDatos(
+        esCargaInicial = false
+      ) {
+        if (cargaDatosEnCurso) {
+          return;
+        }
+
+        cargaDatosEnCurso = true;
+
+        if (
+          esCargaInicial &&
+          registros.length === 0
+        ) {
+          mostrarEstado(
+            "Cargando información..."
+          );
+        }
+
+        const puedeCancelar =
+          typeof AbortController !==
+          "undefined";
+
+        const controlador =
+          puedeCancelar
+            ? new AbortController()
+            : null;
+
+        const temporizador =
+          controlador
+            ? setTimeout(() => {
+                controlador.abort();
+              }, TIEMPO_MAXIMO_DATOS)
+            : null;
 
         try {
-          const respuesta = await fetch(URL_APPS_SCRIPT, {
+          /*
+           * Evita obtener una respuesta antigua
+           * almacenada en caché.
+           */
+          const separador =
+            URL_APPS_SCRIPT.includes("?")
+              ? "&"
+              : "?";
+
+          const urlConsulta =
+            `${URL_APPS_SCRIPT}${separador}t=${Date.now()}`;
+
+          const configuracionFetch = {
             method: "GET",
             cache: "no-store"
-          });
+          };
+
+          if (controlador) {
+            configuracionFetch.signal =
+              controlador.signal;
+          }
+
+          const respuesta =
+            await fetch(
+              urlConsulta,
+              configuracionFetch
+            );
 
           if (!respuesta.ok) {
-            throw new Error(`Error HTTP ${respuesta.status}: ${respuesta.statusText}`);
+            throw new Error(
+              `Error HTTP ${respuesta.status}: ${respuesta.statusText}`
+            );
           }
 
-          const datos = await respuesta.json();
+          const datos =
+            await respuesta.json();
 
           if (!Array.isArray(datos)) {
-            throw new Error("La respuesta de Apps Script no es un arreglo JSON.");
+            throw new Error(
+              "La respuesta de Apps Script no es un arreglo JSON."
+            );
           }
 
-          registros = datos.map(normalizarRegistro).filter((registro) => registro.frase.trim() !== "");
+          const nuevosRegistros =
+            datos
+              .map(normalizarRegistro)
+              .filter((registro) => {
+                return (
+                  typeof registro.frase ===
+                    "string" &&
+                  registro.frase.trim() !== ""
+                );
+              });
 
-          mostrarRegistro(obtenerRegistroAleatorio());
+          /*
+           * Una respuesta vacía temporal no elimina
+           * la información cargada anteriormente.
+           */
+          if (
+            nuevosRegistros.length === 0
+          ) {
+            if (registros.length === 0) {
+              mostrarRegistro(null);
+            }
+
+            ocultarEstado();
+
+            return;
+          }
+
+          registros = nuevosRegistros;
+
+          /*
+           * Muestra una frase inmediatamente durante:
+           *
+           * - la primera carga;
+           * - la recuperación de un error;
+           * - la ausencia de una selección previa.
+           */
+          if (
+            esCargaInicial ||
+            ultimaClaveFrase === "" ||
+            fraseElemento.textContent ===
+              "Cargando frase..." ||
+            fraseElemento.textContent ===
+              "No fue posible cargar la información."
+          ) {
+            mostrarFraseAleatoria();
+          }
+
           ocultarEstado();
         } catch (error) {
-          console.error("No fue posible cargar los datos:", error);
+          console.error(
+            "No fue posible actualizar los datos:",
+            error
+          );
 
-          nombreElemento.textContent = "";
-          fraseElemento.textContent = "No fue posible cargar la información.";
+          /*
+           * Si ya existen registros cargados,
+           * conserva la frase actual.
+           */
+          if (registros.length === 0) {
+            nombreElemento.textContent = "";
 
-          mostrarEstado("Verifica la URL, los permisos del Web App y la conexión.");
+            fraseElemento.textContent =
+              "No fue posible cargar la información.";
+
+            mostrarEstado(
+              "Verifica la conexión y los permisos del Web App."
+            );
+          }
+        } finally {
+          if (temporizador !== null) {
+            clearTimeout(temporizador);
+          }
+
+          cargaDatosEnCurso = false;
         }
       }
 
-      window.addEventListener("resize", ajustarLienzo);
+      /*
+       * ==========================================================
+       * ALMACENAMIENTO DE LA SECUENCIA DE VIDEOS
+       * ==========================================================
+       */
 
-      ajustarLienzo();
-      cargarDatos();
+      function leerColaVideos() {
+        try {
+          const valor =
+            localStorage.getItem(
+              CLAVE_COLA_VIDEOS
+            );
+
+          if (!valor) {
+            return [...colaVideosMemoria];
+          }
+
+          const cola =
+            JSON.parse(valor);
+
+          return Array.isArray(cola)
+            ? cola
+            : [...colaVideosMemoria];
+        } catch (error) {
+          return [...colaVideosMemoria];
+        }
+      }
+
+      function guardarColaVideos(cola) {
+        colaVideosMemoria = [...cola];
+
+        try {
+          localStorage.setItem(
+            CLAVE_COLA_VIDEOS,
+            JSON.stringify(cola)
+          );
+        } catch (error) {
+          console.warn(
+            "No fue posible guardar la cola de videos."
+          );
+        }
+      }
+
+      function leerUltimoVideo() {
+        try {
+          const valor =
+            localStorage.getItem(
+              CLAVE_ULTIMO_VIDEO
+            );
+
+          return (
+            valor ||
+            ultimoVideoMemoria
+          );
+        } catch (error) {
+          return ultimoVideoMemoria;
+        }
+      }
+
+      function guardarUltimoVideo(
+        nombreVideo
+      ) {
+        ultimoVideoMemoria =
+          nombreVideo;
+
+        try {
+          localStorage.setItem(
+            CLAVE_ULTIMO_VIDEO,
+            nombreVideo
+          );
+        } catch (error) {
+          console.warn(
+            "No fue posible guardar el último video."
+          );
+        }
+      }
 
       /*
-      Actualiza el contenido cada 180 segundos.
-      Puedes cambiar 180000 por otro intervalo en milisegundos.
-    */
-      setInterval(cargarDatos, 5000);
+       * Selecciona los fondos aleatoriamente,
+       * utilizando todos antes de repetir alguno.
+       */
+      function obtenerSiguienteVideo() {
+        const ultimoVideo =
+          leerUltimoVideo();
+
+        /*
+         * Elimina de la cola cualquier nombre antiguo
+         * que ya no exista en VIDEOS_FONDO.
+         */
+        let cola =
+          leerColaVideos().filter(
+            (nombreVideo) =>
+              VIDEOS_FONDO.includes(
+                nombreVideo
+              )
+          );
+
+        /*
+         * Cuando termina la ronda,
+         * mezcla nuevamente todos los videos.
+         */
+        if (cola.length === 0) {
+          cola =
+            barajar(VIDEOS_FONDO);
+
+          /*
+           * Evita que una nueva ronda empiece con
+           * el mismo video que terminó la anterior.
+           */
+          if (
+            cola.length > 1 &&
+            cola[0] === ultimoVideo
+          ) {
+            const indiceAlternativo =
+              cola.findIndex(
+                (nombreVideo) =>
+                  nombreVideo !==
+                  ultimoVideo
+              );
+
+            if (indiceAlternativo > 0) {
+              [
+                cola[0],
+                cola[indiceAlternativo]
+              ] = [
+                cola[indiceAlternativo],
+                cola[0]
+              ];
+            }
+          }
+        }
+
+        const videoSeleccionado =
+          cola.shift();
+
+        guardarColaVideos(cola);
+
+        guardarUltimoVideo(
+          videoSeleccionado
+        );
+
+        return videoSeleccionado;
+      }
+
+      /*
+       * ==========================================================
+       * CARGA Y PREPARACIÓN DE VIDEOS
+       * ==========================================================
+       */
+
+      /*
+       * Espera hasta que el navegador tenga
+       * al menos un fotograma disponible.
+       */
+      function esperarVideoListo(
+        video,
+        tiempoMaximo =
+          TIEMPO_MAXIMO_VIDEO
+      ) {
+        if (video.readyState >= 2) {
+          return Promise.resolve();
+        }
+
+        return new Promise(
+          (resolve, reject) => {
+            let finalizado = false;
+
+            const temporizador =
+              setTimeout(() => {
+                terminar(
+                  new Error(
+                    `Tiempo de carga agotado: ${video.src}`
+                  )
+                );
+              }, tiempoMaximo);
+
+            function limpiarEventos() {
+              clearTimeout(
+                temporizador
+              );
+
+              video.removeEventListener(
+                "loadeddata",
+                videoListo
+              );
+
+              video.removeEventListener(
+                "canplay",
+                videoListo
+              );
+
+              video.removeEventListener(
+                "error",
+                videoError
+              );
+            }
+
+            function terminar(
+              error = null
+            ) {
+              if (finalizado) {
+                return;
+              }
+
+              finalizado = true;
+
+              limpiarEventos();
+
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            }
+
+            function videoListo() {
+              terminar();
+            }
+
+            function videoError() {
+              terminar(
+                new Error(
+                  `No fue posible cargar: ${video.src}`
+                )
+              );
+            }
+
+            video.addEventListener(
+              "loadeddata",
+              videoListo
+            );
+
+            video.addEventListener(
+              "canplay",
+              videoListo
+            );
+
+            video.addEventListener(
+              "error",
+              videoError
+            );
+          }
+        );
+      }
+
+      /*
+       * Espera hasta que el navegador haya generado
+       * un fotograma real del video.
+       */
+      function esperarPrimerFotograma(
+        video,
+        tiempoMaximo = 1500
+      ) {
+        return new Promise((resolve) => {
+          let finalizado = false;
+          let identificadorFotograma = null;
+
+          const temporizador =
+            setTimeout(
+              finalizar,
+              tiempoMaximo
+            );
+
+          function finalizar() {
+            if (finalizado) {
+              return;
+            }
+
+            finalizado = true;
+
+            clearTimeout(
+              temporizador
+            );
+
+            video.removeEventListener(
+              "playing",
+              finalizar
+            );
+
+            video.removeEventListener(
+              "timeupdate",
+              finalizar
+            );
+
+            if (
+              identificadorFotograma !==
+                null &&
+              typeof video.cancelVideoFrameCallback ===
+                "function"
+            ) {
+              video.cancelVideoFrameCallback(
+                identificadorFotograma
+              );
+            }
+
+            resolve();
+          }
+
+          if (
+            typeof video.requestVideoFrameCallback ===
+            "function"
+          ) {
+            identificadorFotograma =
+              video.requestVideoFrameCallback(
+                finalizar
+              );
+          } else {
+            video.addEventListener(
+              "playing",
+              finalizar,
+              { once: true }
+            );
+
+            video.addEventListener(
+              "timeupdate",
+              finalizar,
+              { once: true }
+            );
+          }
+        });
+      }
+
+      /*
+       * Limpia el reproductor que está oculto.
+       */
+      function limpiarVideo(video) {
+        video.pause();
+
+        video.classList.remove(
+          "activo"
+        );
+
+        video.style.zIndex = "0";
+
+        video.removeAttribute("src");
+
+        video.removeAttribute(
+          "data-archivo"
+        );
+
+        video.load();
+      }
+
+      /*
+       * Carga un archivo en un reproductor
+       * y espera hasta que pueda mostrarse.
+       */
+      async function cargarArchivoVideo(
+        video,
+        nombreArchivo
+      ) {
+        video.pause();
+
+        video.classList.remove(
+          "activo"
+        );
+
+        video.style.zIndex = "0";
+
+        video.src =
+          nombreArchivo;
+
+        video.dataset.archivo =
+          nombreArchivo;
+
+        video.load();
+
+        await esperarVideoListo(video);
+
+        try {
+          video.currentTime = 0;
+        } catch (error) {
+          console.warn(
+            "No fue posible colocar el video al inicio:",
+            error
+          );
+        }
+      }
+
+      /*
+       * Si un archivo falla, intenta utilizar otro.
+       */
+      async function cargarSiguienteArchivoValido(
+        video
+      ) {
+        let ultimoError = null;
+
+        for (
+          let intento = 0;
+          intento < VIDEOS_FONDO.length;
+          intento++
+        ) {
+          const archivo =
+            obtenerSiguienteVideo();
+
+          try {
+            await cargarArchivoVideo(
+              video,
+              archivo
+            );
+
+            console.log(
+              "Video cargado:",
+              archivo
+            );
+
+            return archivo;
+          } catch (error) {
+            ultimoError = error;
+
+            console.error(
+              `No fue posible cargar ${archivo}:`,
+              error
+            );
+
+            limpiarVideo(video);
+          }
+        }
+
+        throw (
+          ultimoError ||
+          new Error(
+            "No fue posible cargar ningún video."
+          )
+        );
+      }
+
+      /*
+       * ==========================================================
+       * DOBLE BÚFER DE VIDEO
+       * ==========================================================
+       */
+
+      /*
+       * Precarga el siguiente fondo en el
+       * reproductor que está oculto.
+       */
+      async function prepararSiguienteVideo() {
+        if (siguienteVideoPreparado) {
+          return true;
+        }
+
+        if (promesaPreparacionVideo) {
+          return promesaPreparacionVideo;
+        }
+
+        const indiceSiguiente =
+          1 - indiceVideoActivo;
+
+        const videoSiguiente =
+          videosFondo[indiceSiguiente];
+
+        promesaPreparacionVideo =
+          (async () => {
+            siguienteVideoPreparado =
+              false;
+
+            try {
+              limpiarVideo(
+                videoSiguiente
+              );
+
+              await cargarSiguienteArchivoValido(
+                videoSiguiente
+              );
+
+              siguienteVideoPreparado =
+                true;
+
+              console.log(
+                "Próximo video preparado:",
+                videoSiguiente.dataset
+                  .archivo
+              );
+
+              return true;
+            } catch (error) {
+              siguienteVideoPreparado =
+                false;
+
+              console.error(
+                "No fue posible preparar el próximo video:",
+                error
+              );
+
+              return false;
+            } finally {
+              promesaPreparacionVideo =
+                null;
+            }
+          })();
+
+        return promesaPreparacionVideo;
+      }
+
+      /*
+       * Inicia el primer video visible y comienza
+       * inmediatamente la precarga del segundo.
+       */
+      async function iniciarSistemaVideos() {
+        if (sistemaVideosIniciado) {
+          return;
+        }
+
+        sistemaVideosIniciado = true;
+
+        const videoInicial =
+          videosFondo[indiceVideoActivo];
+
+        try {
+          limpiarVideo(
+            videoInicial
+          );
+
+          await cargarSiguienteArchivoValido(
+            videoInicial
+          );
+
+          videoInicial.style.zIndex =
+            "2";
+
+          const primerFotograma =
+            esperarPrimerFotograma(
+              videoInicial
+            );
+
+          await videoInicial.play();
+
+          await primerFotograma;
+
+          videoInicial.classList.add(
+            "activo"
+          );
+
+          console.log(
+            "Video inicial activo:",
+            videoInicial.dataset.archivo
+          );
+
+          /*
+           * No espera esta operación.
+           * El próximo video se carga mientras
+           * el actual continúa reproduciéndose.
+           */
+          prepararSiguienteVideo();
+        } catch (error) {
+          sistemaVideosIniciado =
+            false;
+
+          console.error(
+            "No fue posible iniciar los videos:",
+            error
+          );
+        }
+      }
+
+      /*
+       * Cambia al video que ya estaba precargado.
+       */
+      async function cambiarAlSiguienteVideo() {
+        if (
+          cambioVideoEnCurso ||
+          !sistemaVideosIniciado
+        ) {
+          return;
+        }
+
+        cambioVideoEnCurso = true;
+
+        const indiceAnterior =
+          indiceVideoActivo;
+
+        const indiceSiguiente =
+          1 - indiceVideoActivo;
+
+        const videoAnterior =
+          videosFondo[indiceAnterior];
+
+        const videoSiguiente =
+          videosFondo[indiceSiguiente];
+
+        try {
+          /*
+           * Normalmente el siguiente video ya estará listo.
+           * Si no lo está, espera su precarga.
+           */
+          if (!siguienteVideoPreparado) {
+            await prepararSiguienteVideo();
+          }
+
+          if (!siguienteVideoPreparado) {
+            throw new Error(
+              "El próximo video no está preparado."
+            );
+          }
+
+          try {
+            videoSiguiente.currentTime =
+              0;
+          } catch (error) {
+            console.warn(
+              "No fue posible reiniciar el video preparado:",
+              error
+            );
+          }
+
+          /*
+           * El video nuevo queda encima del anterior.
+           */
+          videoAnterior.style.zIndex =
+            "1";
+
+          videoSiguiente.style.zIndex =
+            "2";
+
+          const primerFotograma =
+            esperarPrimerFotograma(
+              videoSiguiente
+            );
+
+          await videoSiguiente.play();
+
+          /*
+           * No oculta el fondo anterior hasta que
+           * el nuevo tenga un fotograma disponible.
+           */
+          await primerFotograma;
+
+          videoSiguiente.classList.add(
+            "activo"
+          );
+
+          requestAnimationFrame(() => {
+            videoAnterior.classList.remove(
+              "activo"
+            );
+          });
+
+          /*
+           * Espera a que termine el fundido.
+           */
+          await esperar(
+            DURACION_FUNDIDO_MS + 80
+          );
+
+          videoAnterior.pause();
+
+          indiceVideoActivo =
+            indiceSiguiente;
+
+          siguienteVideoPreparado =
+            false;
+
+          console.log(
+            "Video activo:",
+            videoSiguiente.dataset.archivo
+          );
+
+          /*
+           * Limpia el reproductor anterior únicamente
+           * cuando ya quedó completamente oculto.
+           */
+          limpiarVideo(
+            videoAnterior
+          );
+
+          /*
+           * Precarga el próximo archivo.
+           */
+          prepararSiguienteVideo();
+        } catch (error) {
+          console.error(
+            "No fue posible cambiar de video:",
+            error
+          );
+
+          /*
+           * Conserva visible el video anterior.
+           * Esto evita una pantalla negra.
+           */
+          videoAnterior.style.zIndex =
+            "2";
+
+          videoAnterior.classList.add(
+            "activo"
+          );
+
+          videoSiguiente.classList.remove(
+            "activo"
+          );
+
+          videoSiguiente.style.zIndex =
+            "0";
+
+          try {
+            videoAnterior.currentTime =
+              0;
+
+            await videoAnterior.play();
+          } catch (errorReinicio) {
+            console.error(
+              "No fue posible reiniciar el video anterior:",
+              errorReinicio
+            );
+          }
+
+          siguienteVideoPreparado =
+            false;
+
+          prepararSiguienteVideo();
+        } finally {
+          cambioVideoEnCurso = false;
+        }
+      }
+
+      /*
+       * ==========================================================
+       * EVENTOS DE VIDEO
+       * ==========================================================
+       */
+
+      videosFondo.forEach(
+        (video, indice) => {
+          /*
+           * Cambia de fondo antes de llegar
+           * al último fotograma del archivo.
+           */
+          video.addEventListener(
+            "timeupdate",
+            () => {
+              if (
+                indice !==
+                  indiceVideoActivo ||
+                cambioVideoEnCurso ||
+                !Number.isFinite(
+                  video.duration
+                ) ||
+                video.duration <= 0
+              ) {
+                return;
+              }
+
+              const tiempoRestante =
+                video.duration -
+                video.currentTime;
+
+              if (
+                tiempoRestante <=
+                MARGEN_CAMBIO_SEGUNDOS
+              ) {
+                cambiarAlSiguienteVideo();
+              }
+            }
+          );
+
+          /*
+           * Respaldo para reproductores que no ejecuten
+           * timeupdate a tiempo.
+           */
+          video.addEventListener(
+            "ended",
+            () => {
+              if (
+                indice ===
+                indiceVideoActivo
+              ) {
+                cambiarAlSiguienteVideo();
+              }
+            }
+          );
+
+          /*
+           * Si falla el video visible, intenta cambiar
+           * al fondo que ya estaba precargado.
+           */
+          video.addEventListener(
+            "error",
+            () => {
+              console.error(
+                "Error en el reproductor:",
+                video.dataset.archivo ||
+                  video.src
+              );
+
+              if (
+                indice ===
+                indiceVideoActivo
+              ) {
+                cambiarAlSiguienteVideo();
+              }
+            }
+          );
+        }
+      );
+
+      /*
+       * ==========================================================
+       * EVENTOS GENERALES
+       * ==========================================================
+       */
+
+      window.addEventListener(
+        "resize",
+        ajustarLienzo
+      );
+
+      /*
+       * Manejo para plataformas DOOH que cambian
+       * la visibilidad de la creatividad.
+       */
+      document.addEventListener(
+        "visibilitychange",
+        () => {
+          if (document.hidden) {
+            videosFondo.forEach(
+              (video) => {
+                video.pause();
+              }
+            );
+
+            return;
+          }
+
+          if (!sistemaVideosIniciado) {
+            iniciarSistemaVideos();
+
+            return;
+          }
+
+          /*
+           * Al volver a aparecer, utiliza un
+           * fragmento diferente.
+           */
+          cambiarAlSiguienteVideo();
+        }
+      );
+
+      /*
+       * Manejo de páginas recuperadas desde caché.
+       */
+      window.addEventListener(
+        "pageshow",
+        (evento) => {
+          if (!sistemaVideosIniciado) {
+            iniciarSistemaVideos();
+          } else if (evento.persisted) {
+            cambiarAlSiguienteVideo();
+          }
+        }
+      );
+
+      /*
+       * ==========================================================
+       * INICIALIZACIÓN
+       * ==========================================================
+       */
+
+      ajustarLienzo();
+
+      /*
+       * Primera carga de frases.
+       */
+      cargarDatos(true);
+
+      /*
+       * Primera selección aleatoria de fondo.
+       */
+      iniciarSistemaVideos();
+
+      /*
+       * Cambia únicamente la frase cada 5 segundos.
+       */
+      setInterval(
+        mostrarFraseAleatoria,
+        INTERVALO_FRASES
+      );
+
+      /*
+       * Actualiza los registros de Google
+       * cada 5 minutos.
+       */
+      setInterval(
+        () => cargarDatos(false),
+        INTERVALO_ACTUALIZACION_DATOS
+      );
     </script>
   </body>
 </html>
