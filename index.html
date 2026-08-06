@@ -258,26 +258,46 @@
       /*
        * Cambia la frase cada 5 segundos.
        */
-      const INTERVALO_FRASES = 5000;
+        const INTERVALO_FRASES = 5000;
 
       /*
-       * Actualiza la información de Google cada 5 minutos.
+       * Actualiza la información de Google cada 10 minutos.
        */
       const INTERVALO_ACTUALIZACION_DATOS =
-        10 * 60 * 1000;
+        5 * 60 * 1000;
 
       /*
-       * Tiempo máximo para cargar las frases.
+       * Tiempo máximo para cada intento de carga de frases.
        */
-      const TIEMPO_MAXIMO_DATOS = 35000;
+      const TIEMPO_MAXIMO_DATOS = 15000;
+
+      /*
+       * Si Apps Script falla o devuelve una página HTML de Google,
+       * se realizan varios intentos antes de abandonar la consulta.
+       */
+      const MAX_INTENTOS_DATOS = 3;
+
+      const RETRASO_REINTENTO_DATOS = 2500;
+
+      /*
+       * Si todos los intentos fallan, se programa una recuperación
+       * adicional sin borrar la información que ya está en pantalla.
+       */
+      const RETRASO_RECUPERACION_DATOS = 60 * 1000;
+
+      /*
+       * Guarda la última respuesta válida para reutilizarla cuando
+       * la creatividad se cargue y Google esté temporalmente caído.
+       */
+      const CLAVE_CACHE_FRASES =
+        "dooh-cache-frases-769x769-v1";
 
       /*
        * Duración del fundido entre videos.
        *
        * Debe coincidir aproximadamente con la transición CSS.
        */
-      const DURACION_FUNDIDO_MS = 130;
-
+      const DURACION_FUNDIDO_MS = 120;
       /*
        * El cambio comienza antes de que el archivo termine.
        *
@@ -353,6 +373,8 @@
       let ultimaClaveFrase = "";
 
       let cargaDatosEnCurso = false;
+
+      let temporizadorRecuperacionDatos = null;
 
       /*
        * ==========================================================
@@ -482,6 +504,107 @@
         };
       }
 
+      /*
+       * Convierte y filtra la respuesta para conservar únicamente
+       * registros con una frase válida.
+       */
+      function prepararRegistros(datos) {
+        if (!Array.isArray(datos)) {
+          return [];
+        }
+
+        return datos
+          .map(normalizarRegistro)
+          .filter((registro) => {
+            return (
+              typeof registro.frase ===
+                "string" &&
+              registro.frase.trim() !== ""
+            );
+          });
+      }
+
+      /*
+       * Guarda localmente la última respuesta válida.
+       */
+      function guardarFrasesEnCache(
+        registrosValidos
+      ) {
+        try {
+          const contenido = {
+            version: 1,
+            guardadoEn: Date.now(),
+            registros: registrosValidos
+          };
+
+          localStorage.setItem(
+            CLAVE_CACHE_FRASES,
+            JSON.stringify(contenido)
+          );
+        } catch (error) {
+          console.warn(
+            "No fue posible guardar las frases en caché:",
+            error
+          );
+        }
+      }
+
+      /*
+       * Recupera las últimas frases válidas guardadas.
+       * También admite una lista directa por compatibilidad.
+       */
+      function cargarFrasesDesdeCache() {
+        try {
+          const contenido =
+            localStorage.getItem(
+              CLAVE_CACHE_FRASES
+            );
+
+          if (!contenido) {
+            return [];
+          }
+
+          const datos = JSON.parse(contenido);
+
+          const registrosGuardados =
+            Array.isArray(datos)
+              ? datos
+              : datos?.registros;
+
+          return prepararRegistros(
+            registrosGuardados
+          );
+        } catch (error) {
+          console.warn(
+            "No fue posible leer las frases guardadas:",
+            error
+          );
+
+          return [];
+        }
+      }
+
+      /*
+       * Programa una nueva consulta después de una falla total.
+       * Solo permite un temporizador pendiente a la vez.
+       */
+      function programarRecuperacionDatos() {
+        if (
+          temporizadorRecuperacionDatos !==
+          null
+        ) {
+          return;
+        }
+
+        temporizadorRecuperacionDatos =
+          setTimeout(() => {
+            temporizadorRecuperacionDatos =
+              null;
+
+            cargarDatos(false);
+          }, RETRASO_RECUPERACION_DATOS);
+      }
+
       function obtenerClaveRegistro(registro) {
         return [
           String(registro.nombre).trim(),
@@ -507,9 +630,8 @@
       }
 
       /*
-       * Selecciona una frase completamente aleatoria.
-       *
-       * Evita mostrar la misma frase dos veces seguidas.
+       * Selecciona una frase aleatoria evitando repetir
+       * inmediatamente la misma.
        */
       function mostrarFraseAleatoria() {
         if (registros.length === 0) {
@@ -524,8 +646,7 @@
           );
 
         /*
-         * Si solamente existe una frase,
-         * se permite repetirla.
+         * Si solamente existe una frase, se permite repetirla.
          */
         if (candidatos.length === 0) {
           candidatos = registros;
@@ -551,11 +672,179 @@
       }
 
       /*
-       * Consulta Google Apps Script.
+       * Ejecuta un intento individual contra Apps Script.
+       * Lee primero como texto para detectar páginas HTML de
+       * Google Drive que puedan llegar con estado HTTP 200.
+       */
+      async function consultarAppsScript(
+        numeroIntento
+      ) {
+        const puedeCancelar =
+          typeof AbortController !==
+          "undefined";
+
+        const controlador =
+          puedeCancelar
+            ? new AbortController()
+            : null;
+
+        const temporizador =
+          controlador
+            ? setTimeout(() => {
+                controlador.abort();
+              }, TIEMPO_MAXIMO_DATOS)
+            : null;
+
+        try {
+          const separador =
+            URL_APPS_SCRIPT.includes("?")
+              ? "&"
+              : "?";
+
+          const urlConsulta =
+            `${URL_APPS_SCRIPT}${separador}` +
+            `t=${Date.now()}&intento=${numeroIntento}`;
+
+          const configuracionFetch = {
+            method: "GET",
+            cache: "no-store",
+            redirect: "follow",
+            headers: {
+              Accept: "application/json,text/plain,*/*"
+            }
+          };
+
+          if (controlador) {
+            configuracionFetch.signal =
+              controlador.signal;
+          }
+
+          const respuesta =
+            await fetch(
+              urlConsulta,
+              configuracionFetch
+            );
+
+          const tipoContenido =
+            respuesta.headers
+              .get("content-type")
+              ?.toLowerCase() || "";
+
+          const cuerpo =
+            await respuesta.text();
+
+          if (!respuesta.ok) {
+            throw new Error(
+              `Error HTTP ${respuesta.status}: ${respuesta.statusText}`
+            );
+          }
+
+          const cuerpoLimpio =
+            cuerpo.trim();
+
+          if (!cuerpoLimpio) {
+            throw new Error(
+              "Apps Script respondió sin contenido."
+            );
+          }
+
+          const pareceHtml =
+            tipoContenido.includes(
+              "text/html"
+            ) ||
+            /^<!doctype\s+html/i.test(
+              cuerpoLimpio
+            ) ||
+            /^<html[\s>]/i.test(
+              cuerpoLimpio
+            );
+
+          if (pareceHtml) {
+            throw new Error(
+              "Google devolvió una página HTML en lugar del JSON esperado."
+            );
+          }
+
+          let datos;
+
+          try {
+            datos = JSON.parse(
+              cuerpoLimpio
+            );
+          } catch (error) {
+            throw new Error(
+              "La respuesta recibida no contiene un JSON válido."
+            );
+          }
+
+          if (!Array.isArray(datos)) {
+            throw new Error(
+              "La respuesta de Apps Script no es un arreglo JSON."
+            );
+          }
+
+          return datos;
+        } finally {
+          if (temporizador !== null) {
+            clearTimeout(temporizador);
+          }
+        }
+      }
+
+      /*
+       * Realiza hasta tres intentos con una espera progresiva.
+       */
+      async function consultarDatosConReintentos() {
+        let ultimoError = null;
+
+        for (
+          let intento = 1;
+          intento <= MAX_INTENTOS_DATOS;
+          intento++
+        ) {
+          try {
+            return await consultarAppsScript(
+              intento
+            );
+          } catch (error) {
+            ultimoError = error;
+
+            console.warn(
+              `Intento ${intento} de ${MAX_INTENTOS_DATOS} fallido:`,
+              error
+            );
+
+            if (
+              intento < MAX_INTENTOS_DATOS
+            ) {
+              const esperaReintento =
+                RETRASO_REINTENTO_DATOS *
+                  intento +
+                Math.floor(
+                  Math.random() * 1000
+                );
+
+              await esperar(
+                esperaReintento
+              );
+            }
+          }
+        }
+
+        throw (
+          ultimoError ||
+          new Error(
+            "No fue posible consultar Apps Script."
+          )
+        );
+      }
+
+      /*
+       * Actualiza las frases desde Google.
        *
-       * La consulta no se realiza cada vez que cambia
-       * la frase. Los registros se cargan y luego se
-       * seleccionan localmente.
+       * Si la consulta falla, conserva la última información válida
+       * cargada desde memoria o desde localStorage. Nunca reemplaza
+       * una frase funcional por el mensaje de error.
        */
       async function cargarDatos(
         esCargaInicial = false
@@ -575,109 +864,44 @@
           );
         }
 
-        const puedeCancelar =
-          typeof AbortController !==
-          "undefined";
-
-        const controlador =
-          puedeCancelar
-            ? new AbortController()
-            : null;
-
-        const temporizador =
-          controlador
-            ? setTimeout(() => {
-                controlador.abort();
-              }, TIEMPO_MAXIMO_DATOS)
-            : null;
-
         try {
-          /*
-           * Evita obtener una respuesta antigua
-           * almacenada en caché.
-           */
-          const separador =
-            URL_APPS_SCRIPT.includes("?")
-              ? "&"
-              : "?";
-
-          const urlConsulta =
-            `${URL_APPS_SCRIPT}${separador}t=${Date.now()}`;
-
-          const configuracionFetch = {
-            method: "GET",
-            cache: "no-store"
-          };
-
-          if (controlador) {
-            configuracionFetch.signal =
-              controlador.signal;
-          }
-
-          const respuesta =
-            await fetch(
-              urlConsulta,
-              configuracionFetch
-            );
-
-          if (!respuesta.ok) {
-            throw new Error(
-              `Error HTTP ${respuesta.status}: ${respuesta.statusText}`
-            );
-          }
-
           const datos =
-            await respuesta.json();
-
-          if (!Array.isArray(datos)) {
-            throw new Error(
-              "La respuesta de Apps Script no es un arreglo JSON."
-            );
-          }
+            await consultarDatosConReintentos();
 
           const nuevosRegistros =
-            datos
-              .map(normalizarRegistro)
-              .filter((registro) => {
-                return (
-                  typeof registro.frase ===
-                    "string" &&
-                  registro.frase.trim() !== ""
-                );
-              });
+            prepararRegistros(datos);
 
-          /*
-           * Una respuesta vacía temporal no elimina
-           * la información cargada anteriormente.
-           */
           if (
             nuevosRegistros.length === 0
           ) {
-            if (registros.length === 0) {
-              mostrarRegistro(null);
-            }
-
-            ocultarEstado();
-
-            return;
+            throw new Error(
+              "Apps Script respondió sin frases válidas."
+            );
           }
 
           registros = nuevosRegistros;
 
-          /*
-           * Muestra una frase inmediatamente durante:
-           *
-           * - la primera carga;
-           * - la recuperación de un error;
-           * - la ausencia de una selección previa.
-           */
+          guardarFrasesEnCache(
+            nuevosRegistros
+          );
+
+          if (
+            temporizadorRecuperacionDatos !==
+            null
+          ) {
+            clearTimeout(
+              temporizadorRecuperacionDatos
+            );
+
+            temporizadorRecuperacionDatos =
+              null;
+          }
+
           if (
             esCargaInicial ||
             ultimaClaveFrase === "" ||
             fraseElemento.textContent ===
-              "Cargando frase..." ||
-            fraseElemento.textContent ===
-              "No fue posible cargar la información."
+              "Cargando frase..."
           ) {
             mostrarFraseAleatoria();
           }
@@ -685,29 +909,45 @@
           ocultarEstado();
         } catch (error) {
           console.error(
-            "No fue posible actualizar los datos:",
+            "No fue posible actualizar los datos después de los reintentos:",
             error
           );
 
           /*
-           * Si ya existen registros cargados,
-           * conserva la frase actual.
+           * Si no había datos en memoria, intenta recuperar nuevamente
+           * la última copia válida almacenada.
            */
           if (registros.length === 0) {
-            nombreElemento.textContent = "";
+            const registrosCache =
+              cargarFrasesDesdeCache();
 
-            fraseElemento.textContent =
-              "No fue posible cargar la información.";
+            if (
+              registrosCache.length > 0
+            ) {
+              registros = registrosCache;
 
-            mostrarEstado(
-              "Verifica la conexión y los permisos del Web App."
-            );
+              mostrarFraseAleatoria();
+
+              ocultarEstado();
+            } else {
+              /*
+               * No muestra "No fue posible cargar la información".
+               * Deja un estado neutro mientras programa otro intento.
+               */
+              nombreElemento.textContent =
+                "";
+
+              fraseElemento.textContent =
+                "Cargando frase...";
+
+              mostrarEstado(
+                "Conexión temporal. Reintentando..."
+              );
+            }
           }
+
+          programarRecuperacionDatos();
         } finally {
-          if (temporizador !== null) {
-            clearTimeout(temporizador);
-          }
-
           cargaDatosEnCurso = false;
         }
       }
@@ -1572,9 +1812,26 @@
       ajustarLienzo();
 
       /*
-       * Primera carga de frases.
+       * Muestra inmediatamente la última información válida guardada.
+       * Después realiza una actualización silenciosa desde Google.
        */
-      cargarDatos(true);
+      const registrosCacheInicial =
+        cargarFrasesDesdeCache();
+
+      if (
+        registrosCacheInicial.length > 0
+      ) {
+        registros =
+          registrosCacheInicial;
+
+        mostrarFraseAleatoria();
+
+        ocultarEstado();
+      }
+
+      cargarDatos(
+        registros.length === 0
+      );
 
       /*
        * Primera selección aleatoria de fondo.
@@ -1582,7 +1839,9 @@
       iniciarSistemaVideos();
 
       /*
-       * Cambia únicamente la frase cada 5 segundos.
+       * Cambia solamente la frase cada 5 segundos.
+       *
+       * No vuelve a consultar Google en cada cambio.
        */
       setInterval(
         mostrarFraseAleatoria,
@@ -1590,8 +1849,7 @@
       );
 
       /*
-       * Actualiza los registros de Google
-       * cada 5 minutos.
+       * Actualiza la base de frases cada 10 minutos.
        */
       setInterval(
         () => cargarDatos(false),
