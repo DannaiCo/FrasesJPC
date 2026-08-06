@@ -261,25 +261,22 @@
       const INTERVALO_FRASES = 5000;
 
       /*
-       * Actualiza la información desde Google
-       * cada 5 minutos.
+       * Actualiza la información de Google cada 5 minutos.
        */
       const INTERVALO_ACTUALIZACION_DATOS =
-        5 * 60 * 1000;
+        10 * 60 * 1000;
 
       /*
-       * Tiempo máximo para esperar la respuesta
-       * de Google Apps Script.
+       * Tiempo máximo para cargar las frases.
        */
-      const TIEMPO_MAXIMO_DATOS = 15000;
+      const TIEMPO_MAXIMO_DATOS = 35000;
 
       /*
        * Duración del fundido entre videos.
        *
-       * Debe coincidir aproximadamente con
-       * transition: opacity del CSS.
+       * Debe coincidir aproximadamente con la transición CSS.
        */
-      const DURACION_FUNDIDO_MS = 180;
+      const DURACION_FUNDIDO_MS = 120;
 
       /*
        * El cambio comienza antes de que el archivo termine.
